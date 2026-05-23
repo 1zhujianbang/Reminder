@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>交易信号标注工具</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- ===== Top Toolbar (15%) ===== -->
+        <header id="toolbar">
+            <div class="toolbar-left">
+                <div id="timeframe-group"></div>
+            </div>
+            <div class="toolbar-center">
+                <div class="toolbar-row">
+                    <span id="ohlc-bar"></span>
+                    <span id="data-source"></span>
+                </div>
+            </div>
+            <div class="toolbar-right">
+                <button class="tool-btn" id="btn-refresh" title="刷新图表数据">↻</button>
+                <button class="tool-btn" id="btn-clear-all" title="清除当前交易对所有信号">清除</button>
+                <button class="tool-btn" id="btn-export" title="导出信号数据">导出</button>
+                <button class="tool-btn" id="btn-import" title="导入信号数据">导入</button>
+                <button class="tool-btn live-btn" id="btn-live" title="实时数据">LIVE</button>
+            </div>
+        </header>
+
+        <!-- ===== Chart Area (55%) ===== -->
+        <main id="chart-container">
+            <div id="chart"></div>
+        </main>
+
+        <!-- ===== Signal Area (30%) ===== -->
+        <footer id="signal-area">
+            <!-- Note input -->
+            <div id="note-area" class="hidden">
+                <div class="note-top">
+                    <span id="note-signal-info"></span>
+                    <span class="note-ref-btns">
+                        <button class="note-ref-btn" id="btn-ins-flash" title="插入快讯引用">+快讯</button>
+                        <button class="note-ref-btn" id="btn-ins-article" title="插入文章引用">+文章</button>
+                        <button class="note-ref-btn" id="btn-ins-note" title="插入其他笔记引用">+笔记</button>
+                    </span>
+                    <button id="btn-release" class="note-ref-btn" title="释放K线 (取消固定)" style="font-size:12px;line-height:1;padding:2px 5px;">✕</button>
+                    <select id="note-category" disabled>
+                        <option value="technical">技术分析</option>
+                        <option value="news">消息面</option>
+                        <option value="capital">资金流向</option>
+                        <option value="key_level">关键位置</option>
+                        <option value="other">其他</option>
+                    </select>
+                </div>
+                <textarea id="note-input" placeholder="选择K线以查看或添加笔记" rows="2" disabled></textarea>
+            </div>
+
+            <!-- Signal history -->
+            <div id="signal-history">
+                <div class="signal-history-header">
+                    <span>信号记录</span>
+                    <span id="signal-count">0</span>
+                </div>
+                <div id="signal-list"></div>
+            </div>
+
+            <!-- Signal buttons -->
+            <div id="signal-buttons"></div>
+        </footer>
+    </div>
+
+    <!-- Flash news picker -->
+    <div id="flash-picker" class="picker-overlay hidden">
+        <div class="flash-picker-header">
+            <span>选择快讯</span>
+            <button class="picker-close">✕</button>
+        </div>
+        <div id="flash-picker-list" class="picker-list"></div>
+    </div>
+
+    <!-- Article picker -->
+    <div id="article-picker" class="picker-overlay hidden">
+        <div class="flash-picker-header">
+            <span>选择文章</span>
+            <button class="picker-close">✕</button>
+        </div>
+        <div id="article-picker-list" class="picker-list"></div>
+    </div>
+
+    <!-- Note picker (notes from all symbols) -->
+    <div id="note-picker" class="picker-overlay hidden">
+        <div class="flash-picker-header">
+            <span>选择笔记</span>
+            <button class="picker-close">✕</button>
+        </div>
+        <div id="note-picker-list" class="picker-list"></div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+    <!-- Confirm dialog -->
+    <div id="confirm-backdrop" class="confirm-backdrop"></div>
+    <div id="confirm" class="confirm-overlay">
+        <span class="confirm-msg"></span>
+        <div>
+            <button class="confirm-btn cancel">取消</button>
+            <button class="confirm-btn ok">确定</button>
+        </div>
+    </div>
+
+    <!-- Lightweight Charts -->
+    <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

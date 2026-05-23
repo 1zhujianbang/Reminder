@@ -1,0 +1,17 @@
+# OS
+Thumbs.db
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Claude
+.claude/
+.agents/
+skills-lock.json
+
+# Local data
+*.local.json
