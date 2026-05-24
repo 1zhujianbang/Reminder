@@ -182,28 +182,35 @@ var server = http.createServer(function (req, res) {
         return;
     }
 
-    // GET /api/odaily — Odaily news proxy (DNS fix for China)
+    // GET /api/odaily — Odaily news proxy (with retry for transient DNS failure)
     if (req.method === 'GET' && pathname === '/api/odaily') {
         var odPath = url.searchParams.get('path') || 'newsflash?page=1&size=15&lang=zh-cn';
         var odUrl = 'https://api.odaily.news/api/v1/' + odPath;
-        var odParsed = new URL(odUrl);
-        var odReq = https.request({
-            hostname: odParsed.hostname, path: odParsed.pathname + odParsed.search,
-            method: 'GET',
-            headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
-        }, function (odRes) {
-            var b = '';
-            odRes.on('data', function (c) { b += c; });
-            odRes.on('end', function () {
-                res.writeHead(odRes.statusCode, { 'Content-Type': 'application/json' });
-                res.end(b);
+        (function doOdailyRequest(attempt) {
+            var odParsed = new URL(odUrl);
+            var odReq = https.request({
+                hostname: odParsed.hostname, path: odParsed.pathname + odParsed.search,
+                method: 'GET',
+                headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
+            }, function (odRes) {
+                var b = '';
+                odRes.on('data', function (c) { b += c; });
+                odRes.on('end', function () {
+                    res.writeHead(odRes.statusCode, { 'Content-Type': 'application/json' });
+                    res.end(b);
+                });
             });
-        });
-        odReq.on('error', function (e) {
-            res.writeHead(502);
-            res.end(JSON.stringify({ error: e.message }));
-        });
-        odReq.end();
+            odReq.on('error', function (e) {
+                if (attempt < 2) {
+                    console.error('[odaily] retry ' + (attempt + 1) + '/3: ' + e.message);
+                    setTimeout(function () { doOdailyRequest(attempt + 1); }, 1500);
+                } else {
+                    res.writeHead(502);
+                    res.end(JSON.stringify({ error: e.message }));
+                }
+            });
+            odReq.end();
+        })(0);
         return;
     }
 

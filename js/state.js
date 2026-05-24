@@ -9,9 +9,10 @@ export function setStorageAPI(url) { storageAPI = url; }
 
 // --- Main state ---
 export const state = {
-    symbol: 'ZEC-PERP',
-    timeframe: 60,
+    symbol: 'BTC-PERP',
+    timeframe: 1,
     data: [],
+    dataSymbol: null,  // tracks which symbol state.data belongs to
     selectedTime: null,
     selectedIndex: null,
     signals: {},

@@ -7,20 +7,25 @@ import { showToast, updateNoteArea, renderAll, handleSignalClick, dom } from './
 import { SIGNAL_CFG } from './config.js';
 
 var pollInterval = null;
-var deferredAction = null;
+var deferredActions = [];
 
 // ============================================================
 // Polling
 // ============================================================
 
 function processDeferred() {
-    if (!deferredAction) return false;
-    if (state.symbol !== deferredAction.symbol) return false;
-    if (!state.data || state.data.length === 0) return false;
-    var a = deferredAction;
-    deferredAction = null;
-    executeRemoteAction(a);
-    return true;
+    if (deferredActions.length === 0) return false;
+    var found = false;
+    for (var i = 0; i < deferredActions.length; i++) {
+        var a = deferredActions[i];
+        if (a.symbol === state.symbol && state.dataSymbol === state.symbol && state.data && state.data.length > 0) {
+            deferredActions.splice(i, 1);
+            executeRemoteAction(a);
+            found = true;
+            break;
+        }
+    }
+    return found;
 }
 
 export function startRemotePoll() {
@@ -29,8 +34,8 @@ export function startRemotePoll() {
     var pollUrl = base + '/api/poll';
     var connected = false;
     pollInterval = setInterval(function () {
-        // Try to process deferred action first
-        processDeferred();
+        // Process all ready deferred actions
+        while (processDeferred());
 
         var statusUrl = base + '/api/status';
         fetch(pollUrl).then(function (r) { return r.json(); }).then(function (actions) {
@@ -54,8 +59,8 @@ export function startRemotePoll() {
             }).catch(function () {});
             if (!actions || actions.length === 0) return;
             actions.forEach(function (a) { executeRemoteAction(a); });
-            // After processing new actions, try deferred again
-            processDeferred();
+            // After processing new actions, process all ready deferred
+            while (processDeferred());
         }).catch(function () {
             connected = false;
             setStorageAPI(null);
@@ -67,11 +72,15 @@ function executeRemoteAction(a) {
     if (!a || !a.type) return;
     switch (a.type) {
         case 'signal':
-            // Symbol mismatch: defer and switch to correct symbol
-            if (a.symbol && a.symbol !== state.symbol) {
-                deferredAction = a;
-                document.dispatchEvent(new CustomEvent('symbolchange', { detail: { symbol: a.symbol } }));
-                showToast('远程: 切换到 ' + a.symbol, 'info');
+            // Symbol mismatch or data not yet loaded: defer
+            if (a.symbol && (a.symbol !== state.symbol || state.dataSymbol !== state.symbol)) {
+                // Don't enqueue duplicate
+                var dup = deferredActions.some(function (d) { return d.symbol === a.symbol && d.signalType === a.signalType; });
+                if (!dup) deferredActions.push(a);
+                if (a.symbol !== state.symbol) {
+                    document.dispatchEvent(new CustomEvent('symbolchange', { detail: { symbol: a.symbol } }));
+                    showToast('远程: 切换到 ' + a.symbol, 'info');
+                }
                 break;
             }
             if (a.target === 'latest') {
@@ -106,6 +115,10 @@ function executeRemoteAction(a) {
             document.dispatchEvent(new CustomEvent('refresh'));
             break;
         case 'symbol':
+            // Clear deferred actions for the old symbol — data fetch will be stale
+            if (a.symbol !== state.symbol) {
+                deferredActions = deferredActions.filter(function (d) { return d.symbol === a.symbol; });
+            }
             document.dispatchEvent(new CustomEvent('symbolchange', { detail: { symbol: a.symbol } }));
             break;
         case 'exec':

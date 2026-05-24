@@ -67,22 +67,44 @@ function fetchOHLCV(coin, interval) {
     });
 }
 
+function fetchWithRetry(url, retries) {
+    if (retries === undefined) retries = 2;
+    var wait = 1500;
+    function attempt(n) {
+        return get(url).then(function (d) {
+            // Retry on empty/invalid response (transient DNS/network failure)
+            if ((!d || !d.code) && n < retries) {
+                console.error('[fetch]  retry ' + (n + 1) + '/' + retries + ' for ' + url);
+                return new Promise(function (r) { setTimeout(r, wait); }).then(function () { return attempt(n + 1); });
+            }
+            return d;
+        }).catch(function (err) {
+            if (n < retries) {
+                console.error('[fetch]  retry ' + (n + 1) + '/' + retries + ' for ' + url + ' (' + err.message + ')');
+                return new Promise(function (r) { setTimeout(r, wait); }).then(function () { return attempt(n + 1); });
+            }
+            throw err;
+        });
+    }
+    return attempt(0);
+}
+
 function fetchOdailyNewsflash() {
-    return get('/api/odaily?path=' + encodeURIComponent('newsflash?page=1&size=20&lang=zh-cn')).then(function (d) {
+    return fetchWithRetry('/api/odaily?path=' + encodeURIComponent('newsflash?page=1&size=20&lang=zh-cn')).then(function (d) {
         if (d.code === 200 && d.data && d.data.list) return d.data.list;
         return [];
     });
 }
 
 function fetchOdailyArticles() {
-    return get('/api/odaily?path=' + encodeURIComponent('article?page=1&size=10&lang=zh-cn')).then(function (d) {
+    return fetchWithRetry('/api/odaily?path=' + encodeURIComponent('article?page=1&size=10&lang=zh-cn')).then(function (d) {
         if (d.code === 200 && d.data && d.data.list) return d.data.list;
         return [];
     });
 }
 
 function searchOdaily(keyword) {
-    return get('/api/odaily?path=' + encodeURIComponent('search/newsflash?keyword=' + keyword + '&page=1&size=5&lang=zh-cn')).then(function (d) {
+    return fetchWithRetry('/api/odaily?path=' + encodeURIComponent('search/newsflash?keyword=' + keyword + '&page=1&size=5&lang=zh-cn')).then(function (d) {
         if (d.code === 200 && d.data && d.data.list) return d.data.list;
         return [];
     });

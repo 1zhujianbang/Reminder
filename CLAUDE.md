@@ -161,6 +161,8 @@ notify.js (CLI)       — 邮件推送封装
 
 分析流程由定时任务触发（每N分钟），遵循以下步骤：
 
+**Subagent 机制：** 分析工作使用 subagent 执行（`Agent` tool with `run_in_background: true`），避免占用主对话上下文。每个标的独立启动 subagent，逐个处理（完成一个再处理下一个），主对话仅负责数据抓取、切换浏览器、发送信号。
+
 每轮分析只处理**一个标的**，多标的分多轮处理。
 
 1. **抓数据** → `node fetch-data.js <标的列表> > data/scan_data.json 2>/dev/null`
@@ -182,7 +184,9 @@ notify.js (CLI)       — 邮件推送封装
 
    笔记中引用新闻的格式：`【快讯:标题|url】` 或 `【文章:标题|url】`
 
-5. **输出信号** → `REMOTE_SYMBOL=<标的> node remote.js signal-latest <类型> "笔记" <分类>`
+5. **输出信号** → 分两步执行：
+   - 先切换浏览器图表：`node remote.js symbol <标的>` 且 `node remote.js exec "document.dispatchEvent(new CustomEvent('timeframechange',{detail:{timeframe:1}}))"`（切换到对应标的 + 1分钟K线，让用户直观看到最新价格位置）
+   - 再写入信号：`REMOTE_SYMBOL=<标的> node remote.js signal-latest <类型> "笔记" <分类>`
    - REMOTE_SYMBOL 确保信号存入正确的标的下，不混入其他标的
    - 笔记中包含技术面 + 消息面参考（有则写）
 

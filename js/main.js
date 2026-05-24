@@ -65,6 +65,7 @@ function refreshMarketData() {}
 // ============================================================
 
 var fetchGen = 0;
+var pendingSymbol = null;  // queued symbol change when locked
 
 // ============================================================
 // Load chart data
@@ -81,6 +82,7 @@ async function loadChartData() {
         if (gen !== fetchGen) return; // stale
 
         state.data = newData;
+        state.dataSymbol = state.symbol;
         setChartData(newData);
         renderDrawings(state.symbol);
         updateMarkers();
@@ -104,12 +106,20 @@ async function loadChartData() {
 // ============================================================
 
 async function changeSymbol(sym) {
-    if (symbolChangeLock) return;
+    if (symbolChangeLock) {
+        pendingSymbol = sym;
+        return;
+    }
     setSymbolChangeLock(true);
     try {
         state.symbol = sym;
+        state.data = [];
+        state.dataSymbol = null;
         document.title = 'abminder | ' + sym;
         releaseKLine();
+        // Update dropdown selected value without full rebuild
+        var selEl = document.querySelector('.sym-select');
+        if (selEl) selEl.value = sym;
         setSignalFilter('all');
         loadSignals();
         resetHistory();
@@ -120,6 +130,12 @@ async function changeSymbol(sym) {
         refreshMarketData();
     } finally {
         setSymbolChangeLock(false);
+        // Process queued symbol change
+        var next = pendingSymbol;
+        pendingSymbol = null;
+        if (next && next !== sym) {
+            document.dispatchEvent(new CustomEvent('symbolchange', { detail: { symbol: next } }));
+        }
     }
 }
 

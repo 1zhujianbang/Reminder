@@ -249,11 +249,14 @@ var ws = null;
 var wsReconnectTimer = null;
 var WS_RECONNECT_DELAY = 3000;
 var realtimeSource = null;
+var wsConnId = 0;          // incremented per WebSocket connection instance
 export function getRealtimeSource() { return realtimeSource; }
 
 // --- Shared candle update ---
 
-function updateCandleFromRealtime(candle) {
+function updateCandleFromRealtime(candle, connId) {
+    if (connId !== undefined && connId !== wsConnId) return; // reject stale WS connection
+    if (state.dataSymbol !== state.symbol) return;           // reject stale symbol data
     var gen = fetchGen;
     var data = state.data;
     var last = data[data.length - 1];
@@ -302,6 +305,7 @@ function connectOKXWS() {
     var ch = wsChannelFor(state.symbol, state.timeframe);
     if (!ch) return;
     var instId = ch[0], channel = ch[1];
+    var myId = ++wsConnId;
     var wsUrl = 'wss://ws.okx.com:8443/ws/v5/public';
     try { ws = new WebSocket(wsUrl); } catch (e) { return; }
     var connTimer = setTimeout(function () {
@@ -326,7 +330,7 @@ function connectOKXWS() {
                     high: parseFloat(arr[2]), low: parseFloat(arr[3]),
                     close: parseFloat(arr[4]), volume: parseFloat(arr[5]),
                 };
-                if (isFinite(candle.open)) updateCandleFromRealtime(candle);
+                if (isFinite(candle.open)) updateCandleFromRealtime(candle, myId);
             }
         } catch (e) { console.log('[OKX WS] parse error:', e); }
     };
@@ -351,6 +355,7 @@ function connectBinanceWS() {
     var bInterval = BINANCE_WS_TF[state.timeframe];
     if (!bSymbol || !bInterval) return;
     var stream = bSymbol + '@kline_' + bInterval;
+    var myId = ++wsConnId;
     try { ws = new WebSocket('wss://fstream.binance.com/ws/' + stream); } catch (e) { return; }
     ws.onopen = function () { realtimeSource = 'binance-ws'; };
     ws.onmessage = function (ev) {
@@ -361,7 +366,7 @@ function connectBinanceWS() {
             updateCandleFromRealtime({
                 time: Math.floor(k.t / 1000), open: parseFloat(k.o), high: parseFloat(k.h),
                 low: parseFloat(k.l), close: parseFloat(k.c), volume: parseFloat(k.v),
-            });
+            }, myId);
         } catch (e) { console.log('[Binance WS] parse error:', e); }
     };
     ws.onclose = function () { ws = null; if (state.realtime && state.currentMarket === '加密市场') wsReconnectTimer = setTimeout(connectBinanceWS, WS_RECONNECT_DELAY); };
@@ -380,6 +385,7 @@ var pollTimer = null;
 
 async function restPollUpdate() {
     if (state.currentMarket && state.currentMarket !== '加密市场') return;
+    if (state.dataSymbol !== state.symbol) return; // wait for full data load
     try {
         var gen = fetchGen;
         var newData = await fetchOHLCV(state.symbol, state.timeframe, state.candleLimit || 300);
